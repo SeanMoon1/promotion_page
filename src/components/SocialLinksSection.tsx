@@ -1,12 +1,19 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useProfile } from '../contexts/ProfileContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { useForm } from '../hooks';
 import { Plus, Trash2, ExternalLink } from 'lucide-react';
+import { SocialLink } from '../types/auth';
 
-const SocialLinksSection: React.FC = () => {
-  const { profile, addSocialLink, removeSocialLink } = useProfile();
-  const { primaryColor } = useTheme();
+interface SocialLinksSectionProps {
+  socialLinks: SocialLink[];
+  isOwner: boolean;
+  onUpdate?: (updates: { socialLinks: SocialLink[] }) => void;
+}
+
+const SocialLinksSection: React.FC<SocialLinksSectionProps> = ({
+  socialLinks,
+  isOwner,
+  onUpdate
+}) => {
   const [isAdding, setIsAdding] = useState(false);
   
   const { values: newLink, handleChange, reset } = useForm({
@@ -32,34 +39,39 @@ const SocialLinksSection: React.FC = () => {
 
   const handleAddLink = useCallback(() => {
     if (newLink.platform && newLink.url) {
-      addSocialLink({
+      const socialLink: SocialLink = {
+        id: Date.now().toString(),
         platform: newLink.platform,
         url: newLink.url,
         icon: newLink.icon || getSocialIcon(newLink.platform)
-      });
+      };
+      
+      const updatedLinks = [...socialLinks, socialLink];
+      onUpdate?.({ socialLinks: updatedLinks });
+      
       reset();
       setIsAdding(false);
     }
-  }, [newLink, addSocialLink, reset]);
+  }, [newLink, socialLinks, onUpdate, reset]);
 
   const handleRemoveLink = useCallback((id: string) => {
-    removeSocialLink(id);
-  }, [removeSocialLink]);
+    const updatedLinks = socialLinks.filter(link => link.id !== id);
+    onUpdate?.({ socialLinks: updatedLinks });
+  }, [socialLinks, onUpdate]);
 
   const handleCancelAdd = useCallback(() => {
     reset();
     setIsAdding(false);
   }, [reset]);
 
-  const socialLinks = useMemo(() => 
-    profile.socialLinks.map(link => (
+  const socialLinkCards = useMemo(() => 
+    socialLinks.map(link => (
       <SocialLinkCard
         key={link.id}
         link={link}
-        onRemove={handleRemoveLink}
-        primaryColor={primaryColor}
+        onRemove={isOwner ? handleRemoveLink : undefined}
       />
-    )), [profile.socialLinks, handleRemoveLink, primaryColor]);
+    )), [socialLinks, handleRemoveLink, isOwner]);
 
   const getSocialIcon = useCallback((platform: string): string => {
     const platformOption = platformOptions.find(option => option.value === platform);
@@ -70,29 +82,27 @@ const SocialLinksSection: React.FC = () => {
     <section className="mb-16">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-4" style={{ color: primaryColor.hex }}>
+          <h2 className="text-3xl font-bold mb-4 text-gray-900">
             소셜 링크
           </h2>
           <p className="text-gray-600">외부 플랫폼과의 연결을 관리하세요</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {socialLinks}
+          {socialLinkCards}
           
-          {isAdding ? (
-            <AddSocialLinkForm
-              newLink={newLink}
-              handleChange={handleChange}
-              platformOptions={platformOptions}
-              onAdd={handleAddLink}
-              onCancel={handleCancelAdd}
-              primaryColor={primaryColor}
-            />
-          ) : (
-            <AddSocialLinkButton
-              onClick={() => setIsAdding(true)}
-              primaryColor={primaryColor}
-            />
+          {isOwner && (
+            isAdding ? (
+              <AddSocialLinkForm
+                newLink={newLink}
+                handleChange={handleChange}
+                platformOptions={platformOptions}
+                onAdd={handleAddLink}
+                onCancel={handleCancelAdd}
+              />
+            ) : (
+              <AddSocialLinkButton onClick={() => setIsAdding(true)} />
+            )
           )}
         </div>
       </div>
@@ -101,61 +111,56 @@ const SocialLinksSection: React.FC = () => {
 };
 
 interface SocialLinkCardProps {
-  link: {
-    id: string;
-    platform: string;
-    url: string;
-    icon: string;
-  };
-  onRemove: (id: string) => void;
-  primaryColor: { hex: string };
+  link: SocialLink;
+  onRemove?: (id: string) => void;
 }
 
-const SocialLinkCard: React.FC<SocialLinkCardProps> = ({ link, onRemove, primaryColor }) => {
-  const handleRemove = useCallback(() => {
-    onRemove(link.id);
-  }, [onRemove, link.id]);
-
-  const handleClick = useCallback(() => {
-    window.open(link.url, '_blank');
-  }, [link.url]);
-
+const SocialLinkCard: React.FC<SocialLinkCardProps> = ({ link, onRemove }) => {
   return (
     <div className="relative group">
-      <button
-        onClick={handleClick}
-        className="w-full p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex flex-col items-center justify-center space-y-3 hover:scale-105"
-        style={{ borderColor: primaryColor.hex }}
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-blue-300"
       >
-        <div className="text-3xl">{link.icon}</div>
-        <span className="text-sm font-medium text-gray-700 capitalize">
-          {link.platform.replace('-', ' ')}
-        </span>
-        <ExternalLink size={16} className="text-gray-400" />
-      </button>
+        <div className="text-center">
+          <div className="text-4xl mb-3">{link.icon}</div>
+          <h3 className="font-semibold text-gray-900 mb-1 capitalize">
+            {link.platform.replace('-', ' ')}
+          </h3>
+          <p className="text-sm text-gray-500 truncate">{link.url}</p>
+        </div>
+        
+        <ExternalLink className="absolute top-2 right-2 w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </a>
       
-      <button
-        onClick={handleRemove}
-        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
-      >
-        <Trash2 size={12} />
-      </button>
+      {onRemove && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove(link.id);
+          }}
+          className="absolute top-2 left-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 };
 
 interface AddSocialLinkButtonProps {
   onClick: () => void;
-  primaryColor: { hex: string };
 }
 
-const AddSocialLinkButton: React.FC<AddSocialLinkButtonProps> = ({ onClick, primaryColor }) => (
+const AddSocialLinkButton: React.FC<AddSocialLinkButtonProps> = ({ onClick }) => (
   <button
     onClick={onClick}
-    className="w-full p-6 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center space-y-3 text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
-    style={{ borderColor: primaryColor.hex }}
+    className="p-6 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors duration-200 bg-gray-50 hover:bg-gray-100"
   >
-    <Plus size={32} />
+    <Plus className="w-8 h-8 mb-2" />
     <span className="text-sm font-medium">링크 추가</span>
   </button>
 );
@@ -166,7 +171,6 @@ interface AddSocialLinkFormProps {
   platformOptions: Array<{ value: string; label: string; icon: string }>;
   onAdd: () => void;
   onCancel: () => void;
-  primaryColor: { hex: string };
 }
 
 const AddSocialLinkForm: React.FC<AddSocialLinkFormProps> = ({ 
@@ -174,79 +178,66 @@ const AddSocialLinkForm: React.FC<AddSocialLinkFormProps> = ({
   handleChange, 
   platformOptions, 
   onAdd, 
-  onCancel, 
-  primaryColor 
-}) => {
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    onAdd();
-  }, [onAdd]);
-
-  return (
-    <div className="w-full p-6 bg-white rounded-xl shadow-lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h3 className="text-lg font-bold mb-4" style={{ color: primaryColor.hex }}>
-          소셜 링크 추가
-        </h3>
-        
-        <div>
-          <label className="block text-sm font-medium mb-2">플랫폼</label>
-          <select
-            value={newLink.platform}
-            onChange={(e) => handleChange('platform', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          >
-            <option value="">플랫폼 선택</option>
-            {platformOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.icon} {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium mb-2">URL</label>
-          <input
-            type="url"
-            placeholder="https://example.com"
-            value={newLink.url}
-            onChange={(e) => handleChange('url', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium mb-2">아이콘 (선택사항)</label>
-          <input
-            type="text"
-            placeholder="🔗"
-            value={newLink.icon}
-            onChange={(e) => handleChange('icon', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        
-        <div className="flex space-x-2">
-          <button
-            type="submit"
-            className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            추가
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-          >
-            취소
-          </button>
-        </div>
-      </form>
+  onCancel 
+}) => (
+  <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+    <h3 className="text-lg font-semibold mb-4 text-gray-900">새로운 링크</h3>
+    
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">플랫폼</label>
+        <select
+          value={newLink.platform}
+          onChange={(e) => handleChange('platform', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">플랫폼 선택</option>
+          {platformOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.icon} {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+        <input
+          type="url"
+          value={newLink.url}
+          onChange={(e) => handleChange('url', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="https://example.com"
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">아이콘 (선택사항)</label>
+        <input
+          type="text"
+          value={newLink.icon}
+          onChange={(e) => handleChange('icon', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="🎥"
+        />
+      </div>
     </div>
-  );
-};
+    
+    <div className="flex space-x-2 mt-4">
+      <button
+        onClick={onAdd}
+        className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+      >
+        추가
+      </button>
+      <button
+        onClick={onCancel}
+        className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors"
+      >
+        취소
+      </button>
+    </div>
+  </div>
+);
 
 export default SocialLinksSection; 
