@@ -1,25 +1,24 @@
 import React, { useState } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 import { X, Palette, Image } from 'lucide-react';
+import { ProfileData } from '../types/auth';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ColorPickerProps {
   onClose: () => void;
+  profileData: ProfileData;
+  onUpdate: (data: Partial<ProfileData>) => void;
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ onClose }) => {
-  const { 
-    primaryColor, 
-    secondaryColor, 
-    accentColor, 
-    setPrimaryColor, 
-    setSecondaryColor, 
-    setAccentColor,
-    extractColorsFromImage 
-  } = useTheme();
-
+const ColorPicker: React.FC<ColorPickerProps> = ({ onClose, profileData, onUpdate }) => {
+  const { extractColorsFromImage } = useTheme();
   const [selectedColorType, setSelectedColorType] = useState<'primary' | 'secondary' | 'accent'>('primary');
   const [rgbValues, setRgbValues] = useState({ r: 0, g: 0, b: 0 });
   const [imageFile, setImageFile] = useState<File | null>(null);
+
+  // 현재 테마 색상들
+  const primaryColor = profileData.theme.primaryColor;
+  const secondaryColor = profileData.theme.secondaryColor;
+  const accentColor = profileData.theme.accentColor;
 
   const predefinedColors = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
@@ -38,11 +37,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onClose }) => {
   };
 
   const setCurrentColor = (color: { r: number; g: number; b: number; hex: string }) => {
-    switch (selectedColorType) {
-      case 'primary': setPrimaryColor(color); break;
-      case 'secondary': setSecondaryColor(color); break;
-      case 'accent': setAccentColor(color); break;
-    }
+    const updates: Partial<ProfileData> = {
+      theme: {
+        ...profileData.theme,
+        [selectedColorType === 'primary' ? 'primaryColor' : 
+         selectedColorType === 'secondary' ? 'secondaryColor' : 'accentColor']: color
+      }
+    };
+    onUpdate(updates);
   };
 
   const handleRgbChange = (field: 'r' | 'g' | 'b', value: string) => {
@@ -75,13 +77,16 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ onClose }) => {
       setImageFile(file);
       try {
         const colors = await extractColorsFromImage(file);
-        if (colors.length >= 3) {
-          setPrimaryColor(colors[0]);
-          setSecondaryColor(colors[1]);
-          setAccentColor(colors[2]);
+        if (colors && colors.length > 0) {
+          setCurrentColor(colors[0]); // 첫 번째 색상을 현재 색상으로 설정
+        } else {
+          // 색상을 추출할 수 없는 경우 기본 색상으로 설정
+          setCurrentColor({ r: 255, g: 0, b: 0, hex: '#FF0000' });
         }
       } catch (error) {
         console.error('이미지에서 색상을 추출하는데 실패했습니다:', error);
+        // 오류 발생 시 기본 색상으로 설정
+        setCurrentColor({ r: 255, g: 0, b: 0, hex: '#FF0000' });
       }
     }
   };

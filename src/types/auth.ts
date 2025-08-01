@@ -23,6 +23,14 @@ export interface SignupCredentials extends LoginCredentials {
   nickname: string;
 }
 
+export interface CustomSection {
+  id: string;
+  title: string;
+  content: string;
+  order: number;
+  sectionId: string; // 고유한 섹션 ID
+}
+
 export interface ProfileData {
   uid: string;
   nickname: string;
@@ -31,7 +39,13 @@ export interface ProfileData {
   image: string;
   description: string;
   strengths: Strength[];
+  strengthsTitle: string;
   socialLinks: SocialLink[];
+  customSections: CustomSection[];
+  showStrengths: boolean;
+  showSocialLinks: boolean;
+  showCustomSections: boolean;
+  sectionOrder: string[]; // 'strengths', 'socialLinks', 'custom_1', 'custom_2' 등
   theme: {
     primaryColor: Color;
     secondaryColor: Color;

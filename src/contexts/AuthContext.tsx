@@ -44,29 +44,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Firebase Auth 상태 변경 감지
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Firestore에서 사용자 정보 가져오기
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
+      try {
+        if (firebaseUser) {
+          // Firestore에서 사용자 정보 가져오기
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setState({
+              user: {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                displayName: userData.displayName,
+                nickname: userData.nickname,
+                photoURL: firebaseUser.photoURL || undefined,
+                createdAt: userData.createdAt instanceof Timestamp ? userData.createdAt.toDate() : userData.createdAt,
+              },
+              loading: false,
+              error: null,
+            });
+          } else {
+            // 사용자 문서가 없는 경우 (회원가입 직후)
+            setState({
+              user: {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                displayName: firebaseUser.displayName || '',
+                nickname: '', // 임시로 빈 값 설정
+                photoURL: firebaseUser.photoURL || undefined,
+                createdAt: new Date(),
+              },
+              loading: false,
+              error: null,
+            });
+          }
+        } else {
           setState({
-            user: {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: userData.displayName,
-              nickname: userData.nickname,
-              photoURL: firebaseUser.photoURL || undefined,
-              createdAt: userData.createdAt instanceof Timestamp ? userData.createdAt.toDate() : userData.createdAt,
-            },
+            user: null,
             loading: false,
             error: null,
           });
         }
-      } else {
+      } catch (error) {
+        console.error('Auth state change error:', error);
         setState({
           user: null,
           loading: false,
-          error: null,
+          error: '사용자 정보를 불러오는 중 오류가 발생했습니다.',
         });
       }
     });
@@ -95,6 +118,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
+      // 닉네임 중복 체크
+      try {
+        const nicknameDoc = await getDoc(doc(db, 'profiles', credentials.nickname));
+        if (nicknameDoc.exists()) {
+          throw new Error('이미 사용 중인 닉네임입니다.');
+        }
+      } catch (error: any) {
+        if (error.message.includes('닉네임')) {
+          throw error;
+        }
+        console.error('닉네임 중복 체크 실패:', error);
+        throw new Error('닉네임 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      }
+      
       // Firebase Auth로 사용자 생성
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
@@ -116,7 +153,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         createdAt: new Date(),
       };
 
-      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      try {
+        await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      } catch (error: any) {
+        console.error('사용자 정보 저장 실패:', error);
+        throw new Error('사용자 정보 저장 중 오류가 발생했습니다.');
+      }
 
       // 기본 프로필 데이터 생성
       const defaultProfileData: ProfileData = {
@@ -127,7 +169,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         image: '',
         description: '자신을 소개하는 문구를 작성해보세요!',
         strengths: [],
+        strengthsTitle: '나의 강점',
         socialLinks: [],
+        customSections: [],
+        showStrengths: true,
+        showSocialLinks: true,
+        showCustomSections: false,
+        sectionOrder: ['strengths', 'socialLinks'],
         theme: {
           primaryColor: { r: 59, g: 130, b: 246, hex: '#3b82f6' },
           secondaryColor: { r: 147, g: 51, b: 234, hex: '#9333ea' },
@@ -137,16 +185,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updatedAt: new Date(),
       };
 
-      await setDoc(doc(db, 'profiles', credentials.nickname), defaultProfileData);
+      try {
+        await setDoc(doc(db, 'profiles', credentials.nickname), defaultProfileData);
+      } catch (error: any) {
+        console.error('프로필 데이터 저장 실패:', error);
+        throw new Error('프로필 데이터 저장 중 오류가 발생했습니다.');
+      }
+
+      // 회원가입 성공 후 사용자 상태 즉시 업데이트
+      setState({
+        user: {
+          uid: userCredential.user.uid,
+          email: credentials.email,
+          displayName: credentials.displayName,
+          nickname: credentials.nickname,
+          photoURL: userCredential.user.photoURL || undefined,
+          createdAt: new Date(),
+        },
+        loading: false,
+        error: null,
+      });
 
     } catch (error: any) {
+      console.error('회원가입 실패:', error);
       setState(prev => ({ 
         ...prev, 
         error: error.message || '회원가입에 실패했습니다.' 
       }));
       throw error;
-    } finally {
-      setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
 
@@ -182,11 +248,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const profileDoc = await getDoc(doc(db, 'profiles', nickname));
       if (profileDoc.exists()) {
         const data = profileDoc.data() as any;
-        return {
-          ...data,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt,
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt,
+        
+        // 데이터 검증 및 기본값 설정
+        const validatedData: ProfileData = {
+          uid: data.uid || '',
+          nickname: data.nickname || '',
+          pageTitle: data.pageTitle || '',
+          name: data.name || '',
+          image: data.image || '',
+          description: data.description || '',
+          strengths: Array.isArray(data.strengths) ? data.strengths : [],
+          strengthsTitle: data.strengthsTitle || '나의 강점',
+          socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+          customSections: Array.isArray(data.customSections) ? data.customSections : [],
+          showStrengths: data.showStrengths !== false,
+          showSocialLinks: data.showSocialLinks !== false,
+          showCustomSections: data.showCustomSections === true,
+          sectionOrder: Array.isArray(data.sectionOrder) ? data.sectionOrder : ['strengths', 'socialLinks'],
+          theme: data.theme || {
+            primaryColor: { r: 59, g: 130, b: 246, hex: '#3b82f6' },
+            secondaryColor: { r: 147, g: 51, b: 234, hex: '#9333ea' },
+            accentColor: { r: 236, g: 72, b: 153, hex: '#ec4899' },
+          },
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt || new Date(),
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt || new Date(),
         };
+        
+        return validatedData;
       }
       return null;
     } catch (error) {

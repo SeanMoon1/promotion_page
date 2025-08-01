@@ -1,15 +1,16 @@
 import React, { useCallback, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useProfile } from '../contexts/ProfileContext';
 import { useImageProcessing } from '../hooks';
-import { X, Upload, Image, Scissors, RotateCcw } from 'lucide-react';
+import { X, Upload, Image, RotateCcw } from 'lucide-react';
+import { ProfileData } from '../types/auth';
 
 interface ImageUploaderProps {
   onClose: () => void;
+  profileData: ProfileData;
+  onUpdate: (data: Partial<ProfileData>) => void;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onClose }) => {
-  const { profile, updateProfile } = useProfile();
+const ImageUploader: React.FC<ImageUploaderProps> = ({ onClose, profileData, onUpdate }) => {
   const {
     isProcessing,
     processedImage,
@@ -39,10 +40,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onClose }) => {
 
   const handleApplyImage = useCallback(() => {
     if (processedImage) {
-      updateProfile({ image: processedImage });
+      onUpdate({ image: processedImage });
       onClose();
     }
-  }, [processedImage, updateProfile, onClose]);
+  }, [processedImage, onUpdate, onClose]);
 
   const handleReset = useCallback(() => {
     reset();

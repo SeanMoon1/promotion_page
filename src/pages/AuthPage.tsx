@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm, SignupForm } from '../components/AuthForms';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,14 +6,20 @@ import { LogIn, UserPlus } from 'lucide-react';
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  const handleAuthSuccess = useCallback(() => {
-    if (user) {
+  // 사용자 상태 변경 시 자동 리다이렉션
+  useEffect(() => {
+    if (user && user.nickname && !loading) {
       navigate(`/${user.nickname}`);
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
+
+  const handleAuthSuccess = useCallback(() => {
+    // 회원가입 성공 시 즉시 리다이렉션하지 않고, useEffect에서 처리
+    console.log('인증 성공');
+  }, []);
 
   const toggleMode = useCallback(() => {
     setIsLogin(!isLogin);
