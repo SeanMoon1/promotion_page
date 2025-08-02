@@ -417,7 +417,7 @@ const ProfilePage: React.FC = () => {
                 const sectionId = sectionType;
                 const section = (profileData.customSections || []).find(s => s.sectionId === sectionId);
                 
-                if (section && isOwner && profileData.showCustomSections === true) {
+                if (section && profileData.showCustomSections === true) {
                   return (
                     <div key={sectionId} className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
                       <IndividualCustomSection
