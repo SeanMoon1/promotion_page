@@ -10,7 +10,7 @@ import ColorPicker from '../components/ColorPicker';
 import ImageUploader from '../components/ImageUploader';
 import TextEditor from '../components/TextEditor';
 import { useModal } from '../hooks';
-import { LogOut, Settings, User, Edit3 } from 'lucide-react';
+import { LogOut, Settings, User, Edit3, Save, CheckCircle, AlertCircle } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
   const { nickname } = useParams<{ nickname: string }>();
@@ -20,6 +20,11 @@ const ProfilePage: React.FC = () => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 저장 관련 상태
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // 모달 상태 관리
   const colorPickerModal = useModal();
@@ -69,8 +74,27 @@ const ProfilePage: React.FC = () => {
     }
   }, [profileData?.theme]);
 
+  // 페이지를 떠날 때 저장되지 않은 변경사항 확인
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '저장되지 않은 변경사항이 있습니다. 정말로 페이지를 떠나시겠습니까?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   // 로그아웃 처리
   const handleLogout = async () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('저장되지 않은 변경사항이 있습니다. 정말로 로그아웃하시겠습니까?');
+      if (!confirmed) return;
+    }
+    
     try {
       await logout();
       navigate('/');
@@ -94,10 +118,36 @@ const ProfilePage: React.FC = () => {
       }
       
       const updatedData = { ...profileData, ...updates } as ProfileData;
-      await updateProfileData(updatedData);
       setProfileData(updatedData);
+      setHasUnsavedChanges(true);
+      setSaveStatus('idle');
     } catch (error) {
       console.error('프로필 업데이트 실패:', error);
+      setSaveStatus('error');
+    }
+  };
+
+  // 저장 기능
+  const handleSave = async () => {
+    if (!isOwner || !profileData || !hasUnsavedChanges) return;
+
+    setIsSaving(true);
+    setSaveStatus('idle');
+    
+    try {
+      await updateProfileData(profileData);
+      setHasUnsavedChanges(false);
+      setSaveStatus('success');
+      
+      // 성공 메시지 3초 후 사라지게
+      setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    } catch (error) {
+      console.error('저장 실패:', error);
+      setSaveStatus('error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -169,6 +219,51 @@ const ProfilePage: React.FC = () => {
             <div className="flex items-center space-x-4">
               {isOwner ? (
                 <>
+                  {/* 저장 상태 표시 */}
+                  <div className="flex items-center space-x-2">
+                    {hasUnsavedChanges && (
+                      <div className="flex items-center text-orange-600 text-sm">
+                        <AlertCircle className="w-4 h-4 mr-1" />
+                        저장되지 않은 변경사항
+                      </div>
+                    )}
+                    {saveStatus === 'success' && (
+                      <div className="flex items-center text-green-600 text-sm">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        저장 완료!
+                      </div>
+                    )}
+                    {saveStatus === 'error' && (
+                      <div className="flex items-center text-red-600 text-sm">
+                        <AlertCircle className="w-4 h-4 mr-1" />
+                        저장 실패
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 저장 버튼 */}
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasUnsavedChanges || isSaving}
+                    className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      hasUnsavedChanges && !isSaving
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        저장
+                      </>
+                    )}
+                  </button>
+
                   <SectionManager
                     profileData={profileData}
                     isOwner={isOwner}

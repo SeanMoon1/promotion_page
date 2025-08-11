@@ -53,6 +53,9 @@
 - **배경 제거**: 업로드한 이미지의 배경을 자동으로 제거 (누끼 효과)
 - **원본 옵션**: 배경 제거 없이 원본 이미지 사용 가능
 - **프로필 이미지**: 개인 프로필 사진으로 설정
+- **Firebase Storage 연동**: 이미지를 안전하게 클라우드에 저장
+- **자동 이미지 관리**: 기존 이미지 자동 삭제로 저장 공간 최적화
+- **캐시 최적화**: 1년간 유효한 캐시 설정으로 로딩 속도 향상
 
 ### 💪 강점 카드
 - **플립 카드**: 마우스 호버 시 카드가 뒤집히며 상세 설명 표시
@@ -68,6 +71,8 @@
 - **소유자 전용 편집**: 로그인한 사용자만 자신의 페이지 편집 가능
 - **공개 접근**: 누구나 링크로 다른 사용자의 페이지 확인 가능
 - **실시간 권한 확인**: 페이지 소유자 여부에 따른 UI 변경
+- **저장 상태 관리**: 변경사항 저장 상태를 실시간으로 표시
+- **안전한 페이지 이탈**: 저장되지 않은 변경사항이 있을 때 확인 대화상자 표시
 
 ## 🛠️ 기술 스택
 
@@ -81,6 +86,8 @@
 - **Firebase Authentication**: 사용자 인증 및 계정 관리
 - **Firestore**: 실시간 NoSQL 데이터베이스
 - **Firebase Storage**: 이미지 및 파일 저장
+- **보안 규칙**: 사용자별 접근 권한 및 데이터 보호
+- **실시간 동기화**: 변경사항이 즉시 모든 사용자에게 반영
 
 ### 라우팅 & 상태 관리
 - **React Router DOM**: 클라이언트 사이드 라우팅
@@ -94,6 +101,7 @@
 - **useTextEditor**: 텍스트 스타일링 관리
 - **useFlipCard**: 3D 플립 카드 애니메이션
 - **useForm**: 폼 상태 관리
+- **useProfile**: 프로필 데이터 및 저장 상태 관리
 
 ### UI/UX 라이브러리
 - **Lucide React**: 아이콘 라이브러리
@@ -151,6 +159,11 @@ git clone https://github.com/SeanMoon1/promotion_page.git
 cd promotion_page
 ```
 
+### 0. 사전 요구사항
+- **Node.js**: 16.0.0 이상
+- **npm**: 8.0.0 이상
+- **Firebase 계정**: [Firebase Console](https://console.firebase.google.com/)에서 프로젝트 생성
+
 ### 2. 의존성 설치
 ```bash
 npm install
@@ -187,6 +200,54 @@ firebase login
 firebase use your_project_id
 ```
 
+#### 3.5 보안 규칙 설정
+Firebase Console에서 다음 보안 규칙을 설정하세요:
+
+**Firestore 규칙**:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 사용자 정보 - 본인만 읽기/쓰기 가능
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 프로필 데이터 - 모든 사용자가 읽기 가능, 소유자만 쓰기 가능
+    match /profiles/{nickname} {
+      allow read: if true; // 모든 사용자가 프로필을 볼 수 있음
+      allow write: if request.auth != null && 
+        (resource == null || resource.data.uid == request.auth.uid);
+    }
+  }
+}
+```
+
+**Storage 규칙**:
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 프로필 이미지 - 인증된 사용자만 업로드, 모든 사용자가 읽기 가능
+    match /profile-images/{userId}/{allPaths=**} {
+      allow read: if true; // 모든 사용자가 프로필 이미지를 볼 수 있음
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 커스텀 이미지 - 인증된 사용자만 업로드, 모든 사용자가 읽기 가능
+    match /custom-images/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 기본 보안 - 다른 모든 경로는 기본적으로 차단
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
 ### 4. 개발 서버 실행
 ```bash
 npm start
@@ -196,6 +257,15 @@ npm start
 ```bash
 npm run build
 firebase deploy
+```
+
+### 6. 보안 규칙 배포
+```bash
+# Firestore 보안 규칙 배포
+firebase deploy --only firestore:rules
+
+# Storage 보안 규칙 배포
+firebase deploy --only storage
 ```
 
 ## 📖 사용법
@@ -217,6 +287,8 @@ firebase deploy
 3. **텍스트 편집**: "텍스트 편집" 버튼으로 소개 문구 수정
 4. **강점 추가**: 강점 섹션에서 새로운 강점 카드 추가
 5. **소셜 링크**: 소셜 링크 섹션에서 외부 플랫폼 연결
+6. **저장 관리**: "저장" 버튼으로 변경사항을 Firebase에 저장
+7. **섹션 관리**: "섹션 관리" 버튼으로 페이지 구성 요소 순서 변경
 
 ## 🔧 커스터마이징
 
@@ -248,6 +320,17 @@ firebase deploy
 - 환경 변수가 올바르게 설정되었는지 확인
 - Firebase 프로젝트 ID가 정확한지 확인
 - Authentication, Firestore, Storage 서비스가 활성화되었는지 확인
+- 보안 규칙이 올바르게 배포되었는지 확인
+
+### 저장 관련 문제
+- **저장되지 않는 문제**: "저장" 버튼을 클릭했는지 확인
+- **권한 오류**: 로그인 상태 및 사용자 인증 확인
+- **네트워크 오류**: 인터넷 연결 상태 확인
+
+### 이미지 업로드 문제
+- **업로드 실패**: Firebase Storage 서비스 활성화 여부 확인
+- **이미지 표시 안됨**: Storage 보안 규칙에서 읽기 권한 확인
+- **용량 제한**: 이미지 파일 크기 확인 (권장: 5MB 이하)
 
 ### 빌드 오류
 ```bash
@@ -269,6 +352,23 @@ Firebase CLI가 올바르게 설치되고 로그인되었는지 확인하세요.
 4. 브랜치에 푸시하세요 (`git push origin feature/AmazingFeature`)
 5. Pull Request를 생성하세요
 
+## 🔒 보안 및 권한
+
+### 데이터 보호
+- **사용자 인증**: Firebase Authentication을 통한 안전한 로그인
+- **권한 기반 접근**: 사용자별 데이터 접근 권한 제한
+- **보안 규칙**: Firestore 및 Storage에 대한 세밀한 보안 정책
+
+### 저장 및 동기화
+- **실시간 저장**: 변경사항을 즉시 Firebase에 저장
+- **상태 관리**: 저장되지 않은 변경사항 실시간 표시
+- **안전한 이탈**: 저장되지 않은 변경사항이 있을 때 사용자 확인
+
+### 이미지 보안
+- **사용자별 폴더**: 각 사용자의 이미지를 독립적인 폴더에 저장
+- **접근 제어**: 본인만 이미지 수정/삭제 가능
+- **공개 읽기**: 모든 사용자가 업로드된 이미지 확인 가능
+
 ## 📝 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
@@ -282,3 +382,21 @@ Firebase CLI가 올바르게 설치되고 로그인되었는지 확인하세요.
 **개발자**: [문승연] https://github.com/SeanMoon1/promotion_page  
 **버전**: 0.1.0  
 **최종 업데이트**: 2025년 8월 1일
+
+## 📋 최근 업데이트 (v0.1.0)
+
+### ✨ 새로운 기능
+- **Firebase Storage 프로덕션 모드 연동**: 이미지 안전한 클라우드 저장
+- **명시적 저장 시스템**: "저장" 버튼으로 변경사항 관리
+- **실시간 저장 상태 표시**: 저장 진행 상황 및 결과 피드백
+- **자동 이미지 관리**: 기존 이미지 자동 삭제 및 저장 공간 최적화
+
+### 🔒 보안 강화
+- **Storage 보안 규칙**: 사용자별 접근 권한 및 데이터 보호
+- **Firestore 보안 규칙**: 프로필 데이터 읽기/쓰기 권한 세분화
+- **권한 기반 접근 제어**: 인증된 사용자만 데이터 수정 가능
+
+### 🚀 성능 최적화
+- **캐시 최적화**: 1년간 유효한 이미지 캐시 설정
+- **자동 이미지 정리**: 중복 이미지 자동 제거
+- **저장 상태 관리**: 변경사항 추적 및 안전한 페이지 이탈 보호

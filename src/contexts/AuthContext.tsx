@@ -285,7 +285,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // 프로필 데이터 업데이트
   const updateProfileData = useCallback(async (data: Partial<ProfileData>) => {
-    if (!state.user) return;
+    if (!state.user) {
+      throw new Error('사용자 정보가 없습니다.');
+    }
 
     try {
       const profileRef = doc(db, 'profiles', state.user.nickname);
@@ -293,11 +295,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...data,
         updatedAt: new Date(),
       });
+      
+      console.log('프로필 데이터가 성공적으로 저장되었습니다.');
     } catch (error: any) {
+      console.error('프로필 업데이트 실패:', error);
+      
+      // 더 구체적인 에러 메시지 제공
+      let errorMessage = '프로필 업데이트에 실패했습니다.';
+      
+      if (error.code === 'permission-denied') {
+        errorMessage = '저장 권한이 없습니다. 로그인 상태를 확인해주세요.';
+      } else if (error.code === 'not-found') {
+        errorMessage = '프로필을 찾을 수 없습니다.';
+      } else if (error.code === 'unavailable') {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setState(prev => ({ 
         ...prev, 
-        error: error.message || '프로필 업데이트에 실패했습니다.' 
+        error: errorMessage
       }));
+      
+      throw new Error(errorMessage);
     }
   }, [state.user]);
 

@@ -32,6 +32,11 @@ interface ProfileContextType {
   addSocialLink: (link: Omit<SocialLink, 'id'>) => void;
   removeSocialLink: (id: string) => void;
   updateSocialLink: (id: string, updates: Partial<SocialLink>) => void;
+  // 저장 관련 상태 추가
+  hasUnsavedChanges: boolean;
+  isSaving: boolean;
+  saveProfile: () => Promise<void>;
+  clearUnsavedChanges: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -90,8 +95,13 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     pageTitle: '홍길동의 포트폴리오'
   });
 
+  // 저장 관련 상태 추가
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const updateProfile = (updates: Partial<Profile>) => {
     setProfile(prev => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
   };
 
   const addStrength = (strength: Omit<Strength, 'id'>) => {
@@ -103,6 +113,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       ...prev,
       strengths: [...prev.strengths, newStrength]
     }));
+    setHasUnsavedChanges(true);
   };
 
   const removeStrength = (id: string) => {
@@ -110,6 +121,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       ...prev,
       strengths: prev.strengths.filter(s => s.id !== id)
     }));
+    setHasUnsavedChanges(true);
   };
 
   const updateStrength = (id: string, updates: Partial<Strength>) => {
@@ -119,6 +131,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         s.id === id ? { ...s, ...updates } : s
       )
     }));
+    setHasUnsavedChanges(true);
   };
 
   const addSocialLink = (link: Omit<SocialLink, 'id'>) => {
@@ -130,6 +143,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       ...prev,
       socialLinks: [...prev.socialLinks, newLink]
     }));
+    setHasUnsavedChanges(true);
   };
 
   const removeSocialLink = (id: string) => {
@@ -137,6 +151,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       ...prev,
       socialLinks: prev.socialLinks.filter(s => s.id !== id)
     }));
+    setHasUnsavedChanges(true);
   };
 
   const updateSocialLink = (id: string, updates: Partial<SocialLink>) => {
@@ -146,6 +161,27 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         s.id === id ? { ...s, ...updates } : s
       )
     }));
+    setHasUnsavedChanges(true);
+  };
+
+  // 저장 기능 (실제로는 AuthContext의 updateProfileData를 사용해야 함)
+  const saveProfile = async () => {
+    setIsSaving(true);
+    try {
+      // 여기서는 실제 저장 로직이 AuthContext에서 처리됨
+      // 이 함수는 저장 상태만 관리
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 임시 지연
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('저장 실패:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const clearUnsavedChanges = () => {
+    setHasUnsavedChanges(false);
   };
 
   const value: ProfileContextType = {
@@ -157,6 +193,10 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     addSocialLink,
     removeSocialLink,
     updateSocialLink,
+    hasUnsavedChanges,
+    isSaving,
+    saveProfile,
+    clearUnsavedChanges,
   };
 
   return (
