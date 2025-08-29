@@ -29,6 +29,9 @@ export interface CustomSection {
   content: string;
   order: number;
   sectionId: string; // 고유한 섹션 ID
+  type: 'text' | 'image' | 'video'; // 섹션 타입
+  images?: string[]; // 이미지 URL 배열 (type이 'image'일 때)
+  videos?: string[]; // 동영상 URL 배열 (type이 'video'일 때)
 }
 
 export interface ProfileData {
@@ -38,6 +41,8 @@ export interface ProfileData {
   name: string;
   image: string;
   description: string;
+  welcomeMessage: string;
+  welcomeSubtitle: string;
   strengths: Strength[];
   strengthsTitle: string;
   socialLinks: SocialLink[];

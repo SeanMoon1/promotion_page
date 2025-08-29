@@ -30,6 +30,11 @@ const ProfilePage: React.FC = () => {
   const colorPickerModal = useModal();
   const imageUploaderModal = useModal();
   const textEditorModal = useModal();
+  const welcomeMessageModal = useModal();
+
+  // 환영 메시지 상태
+  const [welcomeMessage, setWelcomeMessage] = useState('안녕하세요!');
+  const [welcomeSubtitle, setWelcomeSubtitle] = useState('저는 {nickname}입니다');
 
   // 현재 사용자가 페이지 소유자인지 확인
   const isOwner = useMemo(() => {
@@ -51,6 +56,9 @@ const ProfilePage: React.FC = () => {
         
         if (data) {
           setProfileData(data);
+          // 환영 메시지 설정
+          setWelcomeMessage(data.welcomeMessage || '안녕하세요!');
+          setWelcomeSubtitle(data.welcomeSubtitle || '저는 {nickname}입니다');
           setError(null);
         } else {
           setError('페이지를 찾을 수 없습니다.');
@@ -127,6 +135,26 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // 환영 메시지 업데이트
+  const handleWelcomeMessageUpdate = async () => {
+    if (!isOwner || !profileData) return;
+
+    try {
+      const updatedData = { 
+        ...profileData, 
+        welcomeMessage,
+        welcomeSubtitle
+      } as ProfileData;
+      setProfileData(updatedData);
+      setHasUnsavedChanges(true);
+      setSaveStatus('idle');
+      welcomeMessageModal.close();
+    } catch (error) {
+      console.error('환영 메시지 업데이트 실패:', error);
+      setSaveStatus('error');
+    }
+  };
+
   // 저장 기능
   const handleSave = async () => {
     if (!isOwner || !profileData || !hasUnsavedChanges) return;
@@ -161,9 +189,10 @@ const ProfilePage: React.FC = () => {
     '--accent-color': profileData.theme.accentColor.hex,
   } as React.CSSProperties;
 
-  // 테마 색상을 사용한 동적 배경 스타일
+  // 테마 색상을 사용한 동적 배경 스타일 - 전체 화면에 적용
   const backgroundStyle = {
-    background: `linear-gradient(135deg, ${profileData.theme.primaryColor.hex}15, ${profileData.theme.secondaryColor.hex}15, ${profileData.theme.accentColor.hex}15)`,
+    background: `linear-gradient(135deg, ${profileData.theme.primaryColor.hex}08, ${profileData.theme.secondaryColor.hex}08, ${profileData.theme.accentColor.hex}08)`,
+    minHeight: '100vh',
   } as React.CSSProperties;
 
   // 로딩 상태
@@ -196,6 +225,9 @@ const ProfilePage: React.FC = () => {
       </div>
     );
   }
+
+  // 환영 메시지에서 {nickname}을 실제 닉네임으로 치환
+  const displayWelcomeSubtitle = welcomeSubtitle.replace('{nickname}', profileData.nickname);
 
   return (
     <div className="min-h-screen" style={{ ...backgroundStyle, ...themeStyles }}>
@@ -319,7 +351,7 @@ const ProfilePage: React.FC = () => {
           {isOwner && (
             <div className="absolute top-0 right-0 flex items-center space-x-2">
               <button
-                onClick={textEditorModal.toggle}
+                onClick={welcomeMessageModal.toggle}
                 className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                 title="환영 메시지 편집"
               >
@@ -342,18 +374,18 @@ const ProfilePage: React.FC = () => {
             style={{ 
               color: profileData.theme.primaryColor.hex
             }}
-            onClick={isOwner ? textEditorModal.toggle : undefined}
+            onClick={isOwner ? welcomeMessageModal.toggle : undefined}
             title={isOwner ? '환영 메시지 편집' : undefined}
           >
-            안녕하세요!
+            {welcomeMessage}
           </h1>
           
           <h2 
             className={`text-4xl font-bold text-gray-800 mb-6 ${isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-            onClick={isOwner ? textEditorModal.toggle : undefined}
-            title={isOwner ? '닉네임 편집' : undefined}
+            onClick={isOwner ? welcomeMessageModal.toggle : undefined}
+            title={isOwner ? '환영 메시지 편집' : undefined}
           >
-            저는 <span style={{ color: profileData.theme.primaryColor.hex }}>{profileData.nickname}</span>입니다
+            {displayWelcomeSubtitle}
           </h2>
           
           <p 
@@ -610,10 +642,85 @@ const ProfilePage: React.FC = () => {
               onUpdate={handleProfileUpdate}
             />
           )}
+          {welcomeMessageModal.isOpen && (
+            <WelcomeMessageEditor
+              onClose={welcomeMessageModal.close}
+              welcomeMessage={welcomeMessage}
+              setWelcomeMessage={setWelcomeMessage}
+              welcomeSubtitle={welcomeSubtitle}
+              setWelcomeSubtitle={setWelcomeSubtitle}
+              onSave={handleWelcomeMessageUpdate}
+            />
+          )}
         </>
       )}
     </div>
   );
 };
+
+// 환영 메시지 편집 모달 컴포넌트
+interface WelcomeMessageEditorProps {
+  onClose: () => void;
+  welcomeMessage: string;
+  setWelcomeMessage: (message: string) => void;
+  welcomeSubtitle: string;
+  setWelcomeSubtitle: (subtitle: string) => void;
+  onSave: () => void;
+}
+
+const WelcomeMessageEditor: React.FC<WelcomeMessageEditorProps> = ({
+  onClose,
+  welcomeMessage,
+  setWelcomeMessage,
+  welcomeSubtitle,
+  setWelcomeSubtitle,
+  onSave
+}) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
+      <h3 className="text-xl font-semibold mb-6 text-gray-900">환영 메시지 편집</h3>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">대문 인사</label>
+          <input
+            type="text"
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+            placeholder="예: 안녕하세요!"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">환영 메시지</label>
+          <input
+            type="text"
+            value={welcomeSubtitle}
+            onChange={(e) => setWelcomeSubtitle(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+            placeholder="예: 저는 {nickname}입니다"
+          />
+          <p className="text-xs text-gray-500 mt-1">* {'{nickname}'}은 자동으로 닉네임으로 치환됩니다</p>
+        </div>
+      </div>
+      
+      <div className="flex space-x-3 mt-6">
+        <button
+          onClick={onSave}
+          className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors font-medium"
+        >
+          저장
+        </button>
+        <button
+          onClick={onClose}
+          className="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 export default ProfilePage; 

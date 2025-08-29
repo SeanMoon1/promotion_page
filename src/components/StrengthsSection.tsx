@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Edit3 } from 'lucide-react';
 import { Strength, Color } from '../types/auth';
 import { useFlipCard } from '../hooks';
 
@@ -23,7 +23,10 @@ const StrengthsSection: React.FC<StrengthsSectionProps> = ({
   onUpdate
 }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingStrength, setEditingStrength] = useState<Strength | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newStrength, setNewStrength] = useState({ title: '', description: '' });
+  const [titleEdit, setTitleEdit] = useState(strengthsTitle);
 
   const handleAddStrength = useCallback(() => {
     if (newStrength.title.trim() && newStrength.description.trim()) {
@@ -46,6 +49,40 @@ const StrengthsSection: React.FC<StrengthsSectionProps> = ({
     onUpdate?.({ strengths: updatedStrengths });
   }, [strengths, onUpdate]);
 
+  const handleEditStrength = useCallback((strength: Strength) => {
+    setEditingStrength(strength);
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (editingStrength && editingStrength.title.trim() && editingStrength.description.trim()) {
+      const updatedStrengths = strengths.map(strength => 
+        strength.id === editingStrength.id ? editingStrength : strength
+      );
+      onUpdate?.({ strengths: updatedStrengths });
+      setEditingStrength(null);
+    }
+  }, [editingStrength, strengths, onUpdate]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingStrength(null);
+  }, []);
+
+  const handleTitleEdit = useCallback(() => {
+    setIsEditingTitle(true);
+  }, []);
+
+  const handleTitleSave = useCallback(() => {
+    if (titleEdit.trim()) {
+      onUpdate?.({ strengthsTitle: titleEdit.trim() });
+      setIsEditingTitle(false);
+    }
+  }, [titleEdit, onUpdate]);
+
+  const handleTitleCancel = useCallback(() => {
+    setTitleEdit(strengthsTitle);
+    setIsEditingTitle(false);
+  }, [strengthsTitle]);
+
   const handleCancelAdd = useCallback(() => {
     setNewStrength({ title: '', description: '' });
     setIsAdding(false);
@@ -57,17 +94,58 @@ const StrengthsSection: React.FC<StrengthsSectionProps> = ({
         key={strength.id}
         strength={strength}
         theme={theme}
+        isOwner={isOwner}
         onRemove={isOwner ? handleRemoveStrength : undefined}
+        onEdit={isOwner ? handleEditStrength : undefined}
       />
-    )), [strengths, handleRemoveStrength, isOwner, theme]);
+    )), [strengths, handleRemoveStrength, handleEditStrength, isOwner, theme]);
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-12">
         <div className="text-center mb-8">
-          <h2 className="text-4xl font-bold mb-4 text-gray-900">
-            {strengthsTitle}
-          </h2>
+          <div className="flex items-center justify-center mb-4">
+            {isEditingTitle ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={titleEdit}
+                  onChange={(e) => setTitleEdit(e.target.value)}
+                  className="text-4xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none text-center"
+                  placeholder="섹션 제목"
+                />
+                <button
+                  onClick={handleTitleSave}
+                  className="p-1 text-green-500 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
+                  title="저장"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={handleTitleCancel}
+                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                  title="취소"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <h2 className="text-4xl font-bold text-gray-900">
+                  {strengthsTitle}
+                </h2>
+                {isOwner && (
+                  <button
+                    onClick={handleTitleEdit}
+                    className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="제목 편집"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <p className="text-gray-600 text-lg">마우스를 카드 위에 올리면 자세한 설명을 확인할 수 있습니다</p>
         </div>
 
@@ -88,21 +166,33 @@ const StrengthsSection: React.FC<StrengthsSectionProps> = ({
           )}
         </div>
       </div>
+
+      {/* 편집 모달 */}
+      {editingStrength && (
+        <EditStrengthModal
+          strength={editingStrength}
+          setStrength={setEditingStrength}
+          onSave={handleSaveEdit}
+          onCancel={handleCancelEdit}
+        />
+      )}
     </div>
   );
 };
 
 interface StrengthCardProps {
   strength: Strength;
+  isOwner: boolean;
   theme?: {
     primaryColor: Color;
     secondaryColor: Color;
     accentColor: Color;
   };
   onRemove?: (id: string) => void;
+  onEdit?: (strength: Strength) => void;
 }
 
-const StrengthCard: React.FC<StrengthCardProps> = ({ strength, theme, onRemove }) => {
+const StrengthCard: React.FC<StrengthCardProps> = ({ strength, isOwner, theme, onRemove, onEdit }) => {
   const { isFlipped, setFlipped } = useFlipCard();
 
   const handleMouseEnter = useCallback(() => {
@@ -135,16 +225,29 @@ const StrengthCard: React.FC<StrengthCardProps> = ({ strength, theme, onRemove }
           <div className="text-4xl mb-4">💪</div>
           <h3 className="text-xl font-bold text-white mb-2">{strength.title}</h3>
           
-          {onRemove && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(strength.id);
-              }}
-              className="absolute top-2 right-2 p-1 text-white hover:text-red-200 hover:bg-red-500/20 rounded-full transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+          {isOwner && (
+            <div className="absolute top-2 right-2 flex space-x-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(strength);
+                }}
+                className="p-1 text-white hover:text-blue-200 hover:bg-blue-500/20 rounded-full transition-colors"
+                title="편집"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove?.(strength.id);
+                }}
+                className="p-1 text-white hover:text-red-200 hover:bg-red-500/20 rounded-full transition-colors"
+                title="삭제"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -160,6 +263,31 @@ const StrengthCard: React.FC<StrengthCardProps> = ({ strength, theme, onRemove }
           <div className="text-4xl mb-4">📋</div>
           <h3 className="text-xl font-bold mb-2">{strength.title}</h3>
           <p className="text-sm opacity-90 leading-relaxed">{strength.description}</p>
+          
+          {isOwner && (
+            <div className="absolute top-2 right-2 flex space-x-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(strength);
+                }}
+                className="p-1 text-white hover:text-blue-200 hover:bg-blue-500/20 rounded-full transition-colors"
+                title="편집"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove?.(strength.id);
+                }}
+                className="p-1 text-white hover:text-red-200 hover:bg-red-500/20 rounded-full transition-colors"
+                title="삭제"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -233,6 +361,65 @@ const AddStrengthForm: React.FC<AddStrengthFormProps> = ({
       >
         취소
       </button>
+    </div>
+  </div>
+);
+
+interface EditStrengthModalProps {
+  strength: Strength;
+  setStrength: React.Dispatch<React.SetStateAction<Strength | null>>;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+const EditStrengthModal: React.FC<EditStrengthModalProps> = ({ 
+  strength, 
+  setStrength, 
+  onSave, 
+  onCancel 
+}) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
+      <h3 className="text-xl font-semibold mb-6 text-gray-900">강점 편집</h3>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">제목</label>
+          <input
+            type="text"
+            value={strength.title}
+            onChange={(e) => setStrength(prev => prev ? { ...prev, title: e.target.value } : null)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+            placeholder="강점 제목"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">설명</label>
+          <textarea
+            value={strength.description}
+            onChange={(e) => setStrength(prev => prev ? { ...prev, description: e.target.value } : null)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-none"
+            placeholder="강점에 대한 자세한 설명"
+            rows={4}
+          />
+        </div>
+      </div>
+      
+      <div className="flex space-x-3 mt-6">
+        <button
+          onClick={onSave}
+          className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors font-medium"
+        >
+          저장
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+        >
+          취소
+        </button>
+      </div>
     </div>
   </div>
 );
