@@ -149,20 +149,49 @@ const StrengthsSection: React.FC<StrengthsSectionProps> = ({
           <p className="text-gray-600 text-lg">마우스를 카드 위에 올리면 자세한 설명을 확인할 수 있습니다</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
-          {strengthCards}
+        <div className="flex-1">
+          {strengths.length === 0 && isOwner && (
+            <div className="flex justify-center">
+              {isAdding ? (
+                <AddStrengthForm
+                  newStrength={newStrength}
+                  setNewStrength={setNewStrength}
+                  onAdd={handleAddStrength}
+                  onCancel={handleCancelAdd}
+                />
+              ) : (
+                <AddStrengthButton onClick={() => setIsAdding(true)} />
+              )}
+            </div>
+          )}
           
-          {isOwner && (
-            isAdding ? (
-              <AddStrengthForm
-                newStrength={newStrength}
-                setNewStrength={setNewStrength}
-                onAdd={handleAddStrength}
-                onCancel={handleCancelAdd}
-              />
-            ) : (
-              <AddStrengthButton onClick={() => setIsAdding(true)} />
-            )
+          {strengths.length === 1 && (
+            <div className="flex justify-center">
+              <div className="w-80">
+                {strengthCards[0]}
+              </div>
+            </div>
+          )}
+          
+          {strengths.length > 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {strengthCards}
+            </div>
+          )}
+          
+          {strengths.length > 0 && isOwner && (
+            <div className="flex justify-center mt-6">
+              {isAdding ? (
+                <AddStrengthForm
+                  newStrength={newStrength}
+                  setNewStrength={setNewStrength}
+                  onAdd={handleAddStrength}
+                  onCancel={handleCancelAdd}
+                />
+              ) : (
+                <AddStrengthButton onClick={() => setIsAdding(true)} />
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -301,10 +330,10 @@ interface AddStrengthButtonProps {
 const AddStrengthButton: React.FC<AddStrengthButtonProps> = ({ onClick }) => (
   <button
     onClick={onClick}
-    className="h-64 w-full border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors duration-200 bg-gray-50 hover:bg-gray-100"
+    className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
   >
-    <Plus className="w-8 h-8 mb-2" />
-    <span className="text-sm font-medium">+ 추가</span>
+    <Plus className="w-4 h-4 mr-2" />
+    <span>강점 추가</span>
   </button>
 );
 
