@@ -74,13 +74,20 @@ const ProfilePage: React.FC = () => {
     loadProfileData();
   }, [nickname, getProfileData]);
 
-  // 테마 변경 시 배경색 업데이트를 위한 useEffect
+  // 페이지 전체에 테마 배경 적용
   useEffect(() => {
     if (profileData) {
-      // 강제로 리렌더링을 위한 상태 업데이트
-      setProfileData({ ...profileData });
+      const gradient = `linear-gradient(135deg, ${profileData.theme.primaryColor.hex}20, ${profileData.theme.secondaryColor.hex}20, ${profileData.theme.accentColor.hex}20)`;
+      document.body.style.background = gradient;
+      document.body.style.minHeight = '100vh';
+      
+      // 컴포넌트 언마운트 시 배경 초기화
+      return () => {
+        document.body.style.background = '';
+        document.body.style.minHeight = '';
+      };
     }
-  }, [profileData?.theme]);
+  }, [profileData?.theme.primaryColor.hex, profileData?.theme.secondaryColor.hex, profileData?.theme.accentColor.hex]);
 
   // 페이지를 떠날 때 저장되지 않은 변경사항 확인
   useEffect(() => {
@@ -191,7 +198,7 @@ const ProfilePage: React.FC = () => {
 
   // 테마 색상을 사용한 동적 배경 스타일 - 전체 화면에 적용
   const backgroundStyle = {
-    background: `linear-gradient(135deg, ${profileData.theme.primaryColor.hex}08, ${profileData.theme.secondaryColor.hex}08, ${profileData.theme.accentColor.hex}08)`,
+    background: `linear-gradient(135deg, ${profileData.theme.primaryColor.hex}20, ${profileData.theme.secondaryColor.hex}20, ${profileData.theme.accentColor.hex}20)`,
     minHeight: '100vh',
   } as React.CSSProperties;
 
@@ -398,7 +405,7 @@ const ProfilePage: React.FC = () => {
         </div>
 
         {/* 프로필 카드 섹션 */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
           <div className="flex flex-col lg:flex-row">
             {/* 이미지 섹션 */}
             <div 
@@ -516,7 +523,7 @@ const ProfilePage: React.FC = () => {
           switch (sectionType) {
             case 'strengths':
               return profileData.showStrengths !== false ? (
-                <div key="strengths" className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+                <div key="strengths" className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
                   <StrengthsSection
                     strengths={profileData.strengths || []}
                     strengthsTitle={profileData.strengthsTitle || '나의 강점'}
@@ -529,7 +536,7 @@ const ProfilePage: React.FC = () => {
             
             case 'socialLinks':
               return profileData.showSocialLinks !== false ? (
-                <div key="socialLinks" className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+                <div key="socialLinks" className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
                   <SocialLinksSection
                     socialLinks={profileData.socialLinks || []}
                     isOwner={isOwner}
@@ -546,7 +553,7 @@ const ProfilePage: React.FC = () => {
                 
                 if (section && profileData.showCustomSections === true) {
                   return (
-                    <div key={sectionId} className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+                    <div key={sectionId} className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
                       <IndividualCustomSection
                         section={section}
                         isOwner={isOwner}
@@ -575,7 +582,7 @@ const ProfilePage: React.FC = () => {
 
         {/* 커스텀 섹션 추가 (소유자만) */}
         {isOwner && profileData.showCustomSections === true && (
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
             <CustomSectionAdder
               isOwner={isOwner}
               onAdd={(newSection) => {
@@ -594,7 +601,7 @@ const ProfilePage: React.FC = () => {
         {(!profileData.sectionOrder || profileData.sectionOrder.length === 0) && (
           <>
             {profileData.showStrengths !== false && (
-              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
                 <StrengthsSection
                   strengths={profileData.strengths || []}
                   strengthsTitle={profileData.strengthsTitle || '나의 강점'}
@@ -606,7 +613,7 @@ const ProfilePage: React.FC = () => {
             )}
             
             {profileData.showSocialLinks !== false && (
-              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-16">
                 <SocialLinksSection
                   socialLinks={profileData.socialLinks || []}
                   isOwner={isOwner}
